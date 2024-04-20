@@ -1,0 +1,1730 @@
+---
+title: "Google_Capstone"
+author: "Toni Ventura"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Capstone Bike Project Scenario:
+
+"You are a junior data analyst working in the marketing analyst team at
+Cyclistic, a bike-share company in Chicago. The director of marketing
+believes the company's future success depends on maximizing the number
+of annual memberships. Therefore, your team wants to understand how
+casual riders and annual members use Cyclistic bikes differently. From
+these insights, your team will design a new marketing strategy to
+convert casual riders into annual members.
+
+**But first, Cyclistic executives must approve your recommendations, so
+they must be backed up with compelling data insights and professional
+data visualizations.**" Riders who pay for an annual membership are more
+profitable than casual riders, according to data research. The marketing
+department is considering developing a campaign to entice casual
+passengers to become members. The team wants to look at the Cyclistic
+historical bike trip data to see whether there are any patterns in how
+casual and member users use bikes.
+
+# **1. Ask**
+
+### Questions that will guide the future marketing program:
+
+1)  How do annual members and casual riders use Cyclistic bikes
+    differently?
+
+2)  Why would casual riders buy Cyclistic annual membershipt?
+
+3)  How can Cyclistic use digital media to influence casual riders to
+    become members?
+
+### **Business Objective:**
+
+Through a targeted marketing approach, to increase revenue by converting
+casual riders into annual members.
+
+### **Business Task:**
+
+The junior analyst has been tasked with answering the following
+question:\
+"How do annual members and casual riders use Cyclistic bikes
+differently?"
+
+### **Stakeholders Involved:**
+
+The stakeholders involved in this project are: **Director of Marketing
+at Cyclistic** : Lily Moreno, responsible for the marketing campaigns
+and initiatives to promote the bike-share program.
+
+**The Cyclistic marketing team**, responsible with collecting and
+analysing and reporting data.
+
+**The Cyclistic executives: will decide whether to approve the
+recommended marketing program.**
+
+## 2) Prepare:
+
+### Data Location:
+
+The data is located here:
+<https://divvy-tripdata.s3.amazonaws.com/index.html>
+
+### Data Organization:
+
+The data is organized into csv files. Each file has one month worth of
+data. The data included in the analysis includes the most recent files
+from the last 12 months. Each file contain hundred thousands of records.
+The data has several columns pertaining to the rider type: member
+vs.casual, ride times, as well as information about each start/end
+stations including coordinates, station name, station id and
+coordinates.
+
+### Data Credibility:
+
+Licensing, privacy, security and accessibility: All identifying
+information has been removed from this data, making it anonymous. This
+protects privacy, but also restricts the scope of the investigation.
+This licence <https://ride.divvybikes.com/data-license-agreement>
+governs the distribution of this data.
+
+#### Does the data help answer the business question?
+
+The type of rider along with start/end information per trip along with
+bike type information is included, which are important to find how
+members verses casual riders use the bikes.
+
+### Data Issues:
+
+Several records did not have information for start id or station_name.
+There was not a clear relationship between the station id's, the
+station_names and the coordinates. For each coordinate, there are
+several corresponding station names and id's. The
+start_station_id/end_station_id and
+start_station_names/end_station_names columns were also removed, since
+there were thousands of them without a clear relationship. The dataset
+didn't have any information regarding the casual riders indicating that
+they are locals or tourists.
+
+So, the records without start station_names and station_ids were removed
+from the dataset. Also, end stations without coordinates (end_lat,
+end_lng) were removed.
+
+Some trips had negative or zero times, so they were also removed. I made
+the assumption that each trip had a unique id, as the ride_id. There
+were no duplicates.
+
+It is unclear how docked bikes differ from the classic and electric
+bikes. Typically, bicycle sharing companys have either a docked or
+non-docked system. This seems to be a hybrid of both. For docked bikes,
+I assume that riders go to the docking stations to retrieve the bikes
+and have to return it to a docking station.
+
+### 3) Process
+
+RStudio was used to explore, clean, and analyzse the data. The files
+were too big for spreadsheets or databases.
+
+After, loading all twelve files, the dataset had 5,779,444 records.
+After cleaning the data, the dataset had 4,076,163 records.
+
+The start_station_id, start_station_names, end_station_id,
+end_station_names were intially removed, since some of the data was
+missing and their was no clear relationship between the
+start_station_id, start_station_names, end_station_id, end_station_names
+to the coordinates. The start_station_id/end_station_ids, and
+start_station_names/end_station_names, and start_lat/end_lat,
+start_lng/end_lng values were stored in two separate tables, one for
+start_station (starting coordinates) and one for end_station (ending
+coordinates) to analyze the data based on coordinates.
+
+The records with missing information were removed. I removed these
+records assuming that there was a glitch in the system and the records
+were possibly inaccurate.
+
+Columns were added to calculate ride durations for each trip.
+
+If ride durations were a negative value or zero, those records were also
+removed.
+
+I also found out-liers for rides times that were much too long. The
+outliers were found using boxplot and removed from the dataset. From the
+outliers, the were removed, it looks like outliers were removed that had
+longer ride times. There were some rides that had longer ride times than
+a day and long ride times were removed because bike share systems are
+not the equivalent of bike rentals.
+
+The following steps occur to clean the data: 
+
+# cleaning script below: 
+#install packages 
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+install.packages("tidyverse")
+install.packages("mapview")
+install.packages("dplyr")
+install.packages("tidyr")
+install.packages("knitr")
+install.packages("lubridate")
+install.packages("ggrepel")
+install.packages("RColorBrewer")
+install.packages("winch")
+install.packages("data.table")
+install.packages("janitor")
+install.packages("lubridate")
+install.packages("rstudioapi")
+install.packages("stringr")
+install.packages("rmarkdown")
+install.packages("httpuv")
+install.packages("shiny")
+install.packages("webshot")
+##install.packages("kableExtra")
+```
+
+#loading library
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+library(tidyverse)
+library(skimr)
+library(dplyr)
+library(knitr)
+library(sp)
+library(sf)
+library(dplyr)
+library(tidyr)
+library(mapview)
+library(lubridate)
+library(ggrepel)
+library(lubridate)
+library(RColorBrewer)
+library(winch)
+library(readr)  
+library(janitor)
+library(data.table)
+library(lubridate)
+library(rstudioapi)
+library("stringr")
+library(rmarkdown)
+library(httpuv)
+library(shiny)
+library(webshot)
+##library(kableExtra)
+```
+
+#checking for the same number of columns and column names
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+june2023_df <- fread("202306-divvy-tripdata.csv")
+colnames(june2023_df)
+remove(june2023_df)
+gc()
+
+may2023_df <- fread("202305-divvy-tripdata.csv")
+colnames(may2023_df)
+remove(may2023_df)
+gc()
+
+april2023_df <- fread("202304-divvy-tripdata.csv")
+colnames(april2023_df)
+remove(april2023_df)
+gc()
+
+march2023_df <- fread("202303-divvy-tripdata.csv")
+colnames(march2023_df)
+remove(march2023_df)
+gc()
+
+feb2023_df <- fread("202302-divvy-tripdata.csv")
+colnames(feb2023_df)
+remove(feb2023_df)
+gc()
+
+jan2023_df <- fread("202301-divvy-tripdata.csv")
+colnames(jan2023_df)
+remove(jan2023_df)
+gc()
+
+dec2022_df <- fread("202212-divvy-tripdata.csv")
+colnames(dec2022_df)
+remove(dec2022_df)
+gc()
+
+nov2022_df <- fread("202211-divvy-tripdata.csv")
+colnames(nov2022_df)
+remove(nov2022_df)
+gc()
+
+oct2022_df <- fread("202210-divvy-tripdata.csv")
+colnames(oct2022_df)
+remove(oct2022_df)
+gc()
+
+sept2022_df <- fread("202209-divvy-publictripdata.csv")
+colnames(sept2022_df)
+remove(sept2022_df)
+gc()
+
+aug2022_df <- fread("202208-divvy-tripdata.csv")
+colnames(aug2022_df)
+remove(aug2022_df)
+gc()
+
+july2022_df <- fread("202207-divvy-tripdata.csv")
+colnames(july2022_df)
+remove(july2022_df)
+gc()
+```
+
+##Combining all files where columns columns match. All all columns match.
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+ cyclistic1_df <- list.files(path = ".",pattern = "*.csv", full.names = TRUE) |> 
+  lapply(fread) |>
+  bind_rows()   
+glimpse(cyclistic1_df)
+```
+#Returned 5,779,444 records
+
+#Next, checking for distinct values for the lat/long values to see if there are inconsistancies or blank values
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_df, start_lat)
+```
+##772,920 records returned
+
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_df, start_lng)
+```
+##730,230 records returned
+
+##Formating lat long values 2 digits
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_df <- cyclistic1_df |>
+  mutate(start_lat=round(start_lat, 2)) |> 
+  mutate(start_lng=round(start_lng, 2)) |>
+  mutate(end_lat=round(end_lat,2)) |>
+  mutate(end_lng=round(end_lng, 2))
+```
+
+checking for distinct start lat/long values
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_df, start_lat)
+distinct(cyclistic1_df, start_lng)
+
+```
+##44 start_lat values
+##36 start_lng values
+
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_df, end_lat)
+```
+##61 rows
+
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_df, end_lng)
+```
+
+##Looking at start_station_names
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_df, start_station_name)
+```
+
+##Looking at end_station_names.
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_df, end_station_name)
+```
+
+##One value was NA end_lat and 61 distinct values are returned
+##Looking at records without End lat values where they are NA
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_df |>
+dplyr::select(ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, member_casual)|>
+ filter(is.na(end_lat)) 
+```
+
+##Checking for blank start_station information
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_blank_df<- cyclistic1_df |>
+  dplyr::select(ride_id, rideable_type, started_at, ended_at, start_station_name, 
+         start_station_id, end_station_name, end_station_id, start_lat, start_lng,
+         end_lat, end_lng, member_casual) |>
+  filter(start_station_name=="") 
+glimpse(cyclistic1_blank_df)
+```
+
+##Double checking for value NA
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_df |>
+  dplyr::select(ride_id, rideable_type, started_at, ended_at, start_station_name, 
+       start_station_id, end_station_name, end_station_id, start_lat, start_lng,
+       end_lat, end_lng, member_casual) |>
+  filter(end_lat=="NA") 
+```
+
+##Checking for records that don't have any values for the end points
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df <- cyclistic1_df |>
+  dplyr::select(ride_id, 
+  rideable_type, 
+  start_station_id, 
+  start_station_name, 
+  started_at, 
+  start_lat, 
+  start_lng, 
+  end_station_id, 
+  end_station_name, 
+  ended_at, 
+  end_lat, end_lng, 
+  member_casual) |>
+  filter(!is.na(end_lat) & 
+      !is.na(end_lng) & 
+        end_station_id != "" &
+        end_station_name != "")
+
+glimpse(cyclistic1_cleaned_df)
+```
+
+##Checking start values
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df |>
+  dplyr::select(ride_id, rideable_type, started_at, 
+         start_lat, start_lng,ended_at,
+         end_lat, end_lng, member_casual) |>
+  filter(!is.na(start_lat) & !is.na(start_lng))
+```
+
+##Checking distinct values for start/end lat/long values
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_cleaned_df, start_lat)
+distinct(cyclistic1_cleaned_df, start_lng)
+distinct(cyclistic1_cleaned_df, end_lat)
+distinct(cyclistic1_cleaned_df, end_lng)
+```
+
+##Checking if members or casual users, or specific rideable_type was a specific type without station name or station_id
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_blank_df |>
+  dplyr::select(ride_id, rideable_type, member_casual)
+```
+##Look at data without start station information
+
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+glimpse(cyclistic1_blank_df)
+```
+
+##Getting a dataset without start_station_id and or start_station_name
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df <- cyclistic1_cleaned_df |>
+  dplyr::select(ride_id, 
+  rideable_type, 
+  started_at, 
+  ended_at, 
+  start_station_name, 
+  start_station_id, 
+  end_station_name, 
+  end_station_id, 
+  start_lat, 
+  start_lng,
+  end_lat, 
+  end_lng, 
+  member_casual) |>
+  filter(start_station_id != "") 
+glimpse(cyclistic1_cleaned_df)
+```
+
+Creating station tables and removing stations information from cleaned data to use in maps to show coordinates where riders start and end trips.
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+start_station_df <- cyclistic1_cleaned_df|>
+  dplyr::select(
+                start_station_id, 
+                start_station_name, 
+                start_lat, 
+                start_lng
+                )
+```
+
+Get rid of duplicate records out of the start_station_df
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+start_station_df <- unique(start_station_df)
+glimpse(start_station_df)
+```
+
+Double double checking for duplicates
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+get_dupes(start_station_df)
+```
+
+Getting the end_station information and creating a data-frame for it for maps
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+end_station_df <- cyclistic1_cleaned_df|>
+  dplyr::select(
+                end_station_id, 
+                end_station_name, 
+                end_lat, 
+                end_lng
+                )
+glimpse(end_station_df)
+
+
+end_station_df <- unique(end_station_df)
+glimpse(end_station_df)
+```
+Checking for duplicate End Stations
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+get_dupes(end_station_df)
+```
+
+Removing start_station information from main dataframe
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df <- cyclistic1_cleaned_df|>
+  dplyr::select( -start_station_id, -start_station_name, -end_station_id, 
+          -end_station_name)
+glimpse(cyclistic1_cleaned_df)
+```
+Checking for duplicate records by ride_id. Assuming that ride_id is the unique identifier for each trip.
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+get_dupes(cyclistic1_cleaned_df, ride_id)
+```
+Dropping NA
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df |>
+  drop_na()
+glimpse(cyclistic1_cleaned_df)
+```
+
+Adding date and day information to the dataset
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df$started_at_weekday <- with(cyclistic1_cleaned_df, format(started_at, "%A"))
+
+cyclistic1_cleaned_df$abbrev_weekday <- with(cyclistic1_cleaned_df, format(started_at, "%a"))
+glimpse(cyclistic1_cleaned_df)
+```
+
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_cleaned_df, abbrev_weekday)
+
+##Adding month
+
+cyclistic1_cleaned_df$started_at_month <- with(cyclistic1_cleaned_df, format(started_at, "%m"))
+
+##Adding day from the Date
+
+cyclistic1_cleaned_df$started_at_day <- with(cyclistic1_cleaned_df, format(started_at, "%d"))
+
+##Adding the year
+
+cyclistic1_cleaned_df$started_at_year <- with(cyclistic1_cleaned_df, format(started_at, "%Y"))
+
+##Adding the hour
+
+cyclistic1_cleaned_df$started_at_hour <- with(cyclistic1_cleaned_df, hour(started_at))
+
+##Adding minutes
+
+cyclistic1_cleaned_df$started_at_minute <- with(cyclistic1_cleaned_df, minute(started_at))
+glimpse(cyclistic1_cleaned_df)
+
+##Adding ride_length
+
+cyclistic1_cleaned_df$ride_length <- with(cyclistic1_cleaned_df, 
+ended_at-started_at)
+glimpse(cyclistic1_cleaned_df)
+
+##Coverting ride_length to hour, minute, and seconds
+
+cyclistic1_cleaned_df$ride_length_hms <- with(cyclistic1_cleaned_df,                                            seconds_to_period(ride_length))
+
+glimpse(cyclistic1_cleaned_df)
+```
+
+Checking for blank ride_id
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df |>
+  dplyr::select(ride_id, rideable_type, started_at, 
+         start_lat, start_lng,ended_at,end_lat, end_lng, 
+         member_casual,ride_length, ride_length_hms) |>
+  filter(ride_id=="")
+```
+
+##Double checking ride_id
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df |>
+  select(ride_id, rideable_type, started_at, 
+         start_lat, start_lng,ended_at,end_lat, end_lng, 
+         member_casual,ride_length, ride_length_hms) |>
+  filter(ride_id==" ")
+```
+
+##Ensuring that ride_id is a char
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_no_blank_ride <-cyclistic1_cleaned_df |>
+  select(ride_id, rideable_type, started_at, 
+         start_lat, start_lng,ended_at,end_lat, end_lng, 
+         member_casual,ride_length, ride_length_hms) |>
+  filter(is.character(ride_id)) 
+
+dim(cyclistic1_no_blank_ride)
+```
+
+##Double checking rideable_type is a char
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_cleaned_df, rideable_type)
+
+```
+##Removing *bike from rideable_type
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df <- cyclistic1_cleaned_df |>
+  mutate(rideable_type = str_remove_all(rideable_type, "_bike"))
+```
+
+##Adding lat/long as a string
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df$start_lat_str<- with(cyclistic1_cleaned_df, 
+as.character(start_lat))
+
+cyclistic1_cleaned_df$end_lat_str<- with(cyclistic1_cleaned_df, 
+as.character(end_lat))
+
+cyclistic1_cleaned_df$start_lng_str <- with(cyclistic1_cleaned_df, as.character(start_lng))
+
+cyclistic1_cleaned_df$end_lng_str <- with(cyclistic1_cleaned_df, as.character(end_lng))
+
+cyclistic1_cleaned_df$starting_point <- with(cyclistic1_cleaned_df, paste(start_lat_str, start_lng_str, sep = ","))
+
+cyclistic1_cleaned_df$ending_point <- with(cyclistic1_cleaned_df, paste(end_lat_str, end_lng_str, sep = ","))
+
+glimpse(cyclistic1_cleaned_df)
+```
+
+Double checking that all lat/long values are numeric
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+mean(cyclistic1_cleaned_df$start_lat)
+mean(cyclistic1_cleaned_df$start_lng) 
+mean(cyclistic1_cleaned_df$end_lat)
+mean(cyclistic1_cleaned_df$end_lng)
+```
+Checking for negative values in time difference for ride_length
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+min(cyclistic1_cleaned_df$ride_length)
+min(cyclistic1_cleaned_df$ride_length_hms)
+```
+Max value of the rid_length_hms
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+max(cyclistic1_cleaned_df$ride_length)
+max(cyclistic1_cleaned_df$ride_length_hms)
+```
+
+##Checking days of the week
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+distinct(cyclistic1_cleaned_df, started_at_weekday)
+```
+
+Checking for ride_length less than 0
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_neg_time_df <- cyclistic1_cleaned_df |>
+  select(ride_id, rideable_type, started_at, 
+         start_lat, start_lng,ended_at,end_lat, end_lng, 
+         member_casual,ride_length, ride_length_hms) |>
+  filter(ride_length_hms < 0)
+glimpse(cyclistic1_neg_time_df)
+```
+
+Checking ride_length
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic1_cleaned_df |>
+  select(ride_id, rideable_type, started_at, 
+         start_lat, start_lng,ended_at,end_lat, end_lng, 
+         member_casual, ride_length, ride_length_hms) |>
+  filter(ride_length < 0)
+```
+
+##Checking for ride_length of 0
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+cyclistic_zero_df <- cyclistic1_cleaned_df |>
+  select(ride_id, rideable_type, started_at, 
+         start_lat, start_lng,ended_at,end_lat, end_lng, 
+         member_casual,ride_length, ride_length_hms) |>
+  filter(ride_length == 0)
+##View(cyclistic_zero_df)
+```
+
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+##Getting only records that have ride_lengths greater than 0
+
+cyclistic2_cleaned_df <-cyclistic1_cleaned_df |>
+  select(ride_id, rideable_type, started_at, started_at_weekday, 
+         abbrev_weekday,
+         started_at_month, 
+         started_at_day, 
+         started_at_year,
+         started_at_hour,
+         started_at_minute,
+         ended_at,
+         start_lat, 
+         start_lng, 
+         end_lat, 
+         end_lng, 
+         member_casual, 
+         ride_length, 
+         ride_length_hms,
+         start_lat_str, 
+         start_lng_str, 
+         starting_point,
+         end_lat_str, 
+         end_lng_str, 
+         ending_point) |>
+  filter(ride_length_hms > 0 & ride_length >0)
+glimpse(cyclistic2_cleaned_df)
+```
+
+Checking the ride_length 
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+gc(cyclistic1_cleaned_df)
+min(cyclistic2_cleaned_df$ride_length)
+max(cyclistic2_cleaned_df$ride_length)
+
+min(cyclistic2_cleaned_df$started_at_hour)
+min(cyclistic2_cleaned_df$started_at_minute)
+
+max(cyclistic2_cleaned_df$started_at_hour)
+max(cyclistic2_cleaned_df$started_at_minute)
+```
+
+Checking the ride_length times
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+max(cyclistic2_cleaned_df$ride_length)
+  cyclistic2_cleaned_df|>
+  dplyr::select(member_casual, ride_length, ride_length_hms, rideable_type)|>
+ filter(ride_length > 86400)
+```
+Checking for outlier
+```{r  echo=FALSE, results='hide', message = FALSE, warning = FALSE}
+outliers <-boxplot(cyclistic2_cleaned_df$ride_length, plot=FALSE)$out
+outlier_df <- cleaned_df <- cyclistic2_cleaned_df |>
+  dplyr::select(
+         ride_id, 
+         rideable_type, 
+         started_at, 
+         started_at_weekday, 
+         abbrev_weekday,
+         started_at_month, 
+         started_at_day, 
+         started_at_year,
+         started_at_hour,
+         started_at_minute,
+         ended_at,
+         start_lat, 
+         start_lng, end_lat, end_lng, 
+         member_casual, 
+         ride_length, 
+         ride_length_hms,
+         start_lat_str, 
+         start_lng_str, 
+         starting_point
+         ) |>
+filter(ride_length %in% c(outliers))
+glimpse(cleaned_df)
+
+cleaned_df <- cyclistic2_cleaned_df |>
+  dplyr::select(
+         ride_id, 
+         rideable_type, 
+         started_at, 
+         started_at_weekday, 
+         abbrev_weekday,
+         started_at_month, 
+         started_at_day, 
+         started_at_year,
+         started_at_hour,
+         started_at_minute,
+         ended_at,
+         start_lat, 
+         start_lng, end_lat, end_lng, 
+         member_casual, 
+         ride_length, 
+         ride_length_hms,
+         start_lat_str, 
+         start_lng_str, 
+         starting_point,
+         end_lat_str,
+         end_lng_str,
+         ending_point
+         ) |>
+filter(!ride_length %in% c(outliers))
+glimpse(cleaned_df)
+gc(cyclistic2_cleaned_df)
+
+```
+
+### 4) Data Analysis:
+
+The data has been organized and aggregated by:
+
+Year for All Rider Type: Total Number of Trips; Summarization for all
+riders (maximum, average, minimum) times;
+
+Month for All Rider Types: Total Number of Trips; Average Ride Time; Max
+Ride Time;
+
+Day for All Rider Types: Total Number of Trips; Average Ride Time; Max
+Ride Time;
+
+Hour for All Rider Types: Total Number of Trips
+
+Year for Bike Types Total Trips for Casual/Members Summarization
+(maximum, average, minimum) times for bike types
+
+Month for Bike Types (All Riders) Total number of Rides Average Ride
+Time Maximum Ride Time
+
+Day for Bike Types Total Number of rides per bike_type Average Ride Time
+Maximum Ride Time
+
+Hour for Bike Types Total Number of Rides
+
+Year for Casual Riders Total Number of Rides Average Ride Time Maximum
+Ride Time
+
+Month for Casual Riders Total Number of Rides Average Ride Time Maximum
+Ride Time
+
+Day for Casual Riders Total Number of Rides Average Ride Time Maximum
+Ride Time
+
+Hour for Casual Riders Total Number of Rides
+
+Start Coordinates for Members/Casual Users
+
+End Coordinates for Members/Casual Users
+
+\newpage
+
+Totals of members verses casual riders
+
+```{r  echo = FALSE, message=FALSE, warning=FALSE}
+total_sum <- cleaned_df|>
+  group_by(member_casual)|>
+  summarise(Total = n())
+knitr::kable(total_sum, caption = "Total Number of Trips")
+
+```
+
+\pretolerance=10000
+
+```{r  echo = FALSE, message=FALSE, warning=FALSE}
+ ggplot(data = cleaned_df)+
+  geom_bar(mapping = aes(x = member_casual, 
+    fill = member_casual)) + 
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw()+
+  labs(x ="Rider Type", y= "", fill="Rider Type")+
+  ggtitle("Total Number of Trips")+
+  scale_y_continuous(labels = scales::label_number_si())
+  ##ggsave(file="total_trip.png", plot = total_trip)
+
+    
+```
+
+\newpage
+
+Total Summarization Table by Month
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+ 
+  summarization_month <- cleaned_df|>
+  group_by(member_casual,started_at_month)|>
+  summarise(rides_per_month = n())|>
+  pivot_wider(names_from = member_casual,
+    values_from = rides_per_month)
+  knitr::kable(summarization_month, caption = "Total Trips  Per Month")
+  
+```
+
+\pretolerance=10000
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+  ggplot(data = cleaned_df, aes(x = started_at_month,
+  fill = member_casual)) + geom_bar(position = position_dodge()) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw()+
+  labs(x = "Month", y = "", fill="Rider Type") +
+  scale_y_continuous(labels = scales::label_number_si())+
+  ggtitle("Total Trips for Each Rider Type")
+  ##ggsave(file = "total_all_month.png", plot = total_all_month)
+```
+
+\newpage
+
+```{r  echo = FALSE, message=FALSE, warning=FALSE}
+cyclistic_summarization <- cleaned_df|>
+  group_by(member_casual)|>
+  summarise(Shortest = min(ride_length),
+          Average = mean(ride_length), 
+          Longest = max(ride_length))|>
+          arrange(Average)
+  cyclistic_summarization$shortest_minutes  <- with(cyclistic_summarization, seconds_to_period(Shortest))
+  cyclistic_summarization$average_minutes <- with(cyclistic_summarization, 
+seconds_to_period(Average))
+  cyclistic_summarization$longest_minutes <- with (cyclistic_summarization, 
+seconds_to_period(Longest))
+  cyclistic_summarization <- cyclistic_summarization |>
+    select(-Average, -Shortest, -Longest, shortest_minutes, average_minutes, longest_minutes)|>
+    mutate(Shortest = round(shortest_minutes,2))|>
+    mutate(Average = round(average_minutes,2))|>
+    mutate(Longest = round(longest_minutes,2))|>
+    select(-shortest_minutes, -average_minutes, -longest_minutes, Average, Longest, Shortest)
+  
+  
+knitr::kable(cyclistic_summarization, caption = "Summarization (sec) of Trip Times Per Month")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+mean_month_df <-cleaned_df|>
+  group_by(member_casual, started_at_month)|>
+  summarise(ride_length_month = mean(ride_length), .groups = "drop")|>
+  pivot_wider(names_from = member_casual,
+  values_from = ride_length_month)
+  mean_month_df$casual_min <- with(mean_month_df, seconds_to_period(casual))
+  mean_month_df$member_min <- with(mean_month_df, seconds_to_period(member))
+  mean_month_df <- mean_month_df|>
+  select(-casual, -member, casual_min, member_min)|>
+  mutate(casual_average = round(casual_min))|>
+  mutate(member_average =round(member_min))|>
+  select(-casual_min, -member_min, casual_average, member_average)
+  
+  knitr::kable(mean_month_df, caption = "Summarization of Average Trip Times Per Month")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+## this doesn't show alot of info, removing from output results
+cleaned_df |>
+  group_by(member_casual, started_at_month)|>
+  summarise(ride_length_month = max(ride_length))|>
+  pivot_wider(names_from = member_casual,
+    values_from = ride_length_month)|>
+    knitr::kable( caption = "Summarization of Maximun Ride Times")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+cleaned_df|>
+  mutate(month = started_at_month)|>
+  group_by(member_casual, month)|>
+summarise(number_of_rides = n(), average_duration = mean(ride_length), .groups="drop")|>
+  arrange(member_casual, month)|>
+  ggplot(aes(month, average_duration, fill= member_casual))+
+  geom_col(position= "dodge")+
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_time()+
+  labs(x="Month", y="(minutes)") +
+  theme_bw()+
+  labs(fill="Rider Type") +
+  ggtitle("Average Trip Time for Rider Types")
+
+  
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cleaned_df$started_at_weekday <- ordered(cleaned_df$started_at_weekday, levels= c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+cleaned_df|>
+ group_by(member_casual, started_at_weekday)|>
+  summarise(number_of_rides = n())|>
+  pivot_wider(names_from = member_casual, 
+    values_from = number_of_rides)|>
+  knitr::kable( caption = "Total Trips Per Day")
+  
+```
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+cleaned_df$abbrev_weekday <- ordered(cleaned_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")) 
+ cleaned_df|>                                                                       
+ mutate(weekday = abbrev_weekday)|>
+  group_by(member_casual, weekday)|>
+ summarise(number_of_rides = n(), average_duration=mean(ride_length), .groups="drop")|>
+  arrange(member_casual, weekday)|>
+  ggplot(aes(weekday, number_of_rides, 
+    fill = member_casual)) +
+  geom_col(position= "dodge")+
+  scale_fill_brewer(palette = "Set2") +
+   labs(x = "", y = "", fill = "Rider Type") +
+   scale_y_continuous(labels = scales::label_number_si()) + 
+   ggtitle("Total Trips Per Day") + 
+   theme_bw()
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cleaned_df$started_at_weekday <- ordered(cleaned_df$started_at_weekday, levels= c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+week_ave_summary <- cleaned_df|>
+  group_by(member_casual, started_at_weekday)|>
+  summarise(mean_weekday_value = mean(ride_length))|>
+  pivot_wider(names_from = member_casual, 
+  values_from = mean_weekday_value)
+  
+week_ave_summary$member_average <- with(week_ave_summary, seconds_to_period(member))
+week_ave_summary$casual_average <- with(week_ave_summary, seconds_to_period(casual))
+week_ave_summary|>
+  select(-member, -casual, member_average, casual_average)|>
+  mutate(member = round(member_average, 2))|>
+  mutate(casual=round(casual_average, 2))|>
+  select(-member_average, -casual_average, member, casual)|>
+  
+  knitr::kable( caption = "Average Trip Time for All Riders")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+cleaned_df$abbrev_weekday <- ordered(cleaned_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+cleaned_df |>
+ mutate(weekday = abbrev_weekday)|>
+  group_by(member_casual, weekday)|>
+ summarise(number_of_rides = n(), average_duration=mean(ride_length), .groups="drop")|>
+  arrange(member_casual, weekday)|>
+  ggplot(aes(weekday, average_duration, 
+    fill = member_casual)) +
+  geom_col(position= "dodge")+
+  scale_fill_brewer(palette = "Set2") +
+  labs(x = "", y = "(minutes)", 
+       fill = "Rider Type")+
+  scale_y_time()+
+  ggtitle("Average Trip Time for All Riders") +
+  theme_bw()
+```
+
+\newpage
+
+Line-graph for the number of rides per rider type during certain times
+of day.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cleaned_df|>
+  mutate(hour = started_at_hour)|>
+  mutate(rider_type = member_casual)|>
+  group_by(rider_type, hour)|>
+summarise(number_of_rides = n(), average_duration=mean(ride_length), .groups="drop")|>
+  arrange(rider_type, hour)|>
+  ggplot(aes(hour, number_of_rides, color = rider_type, shape = rider_type)) +
+  geom_point(size = 2) +
+  geom_line()+
+  scale_color_brewer(palette="Set2") +
+  theme(legend.title=element_blank())+
+  labs(x="Hours", y="") +
+  theme_bw()+
+  scale_x_time()+
+  scale_y_continuous(labels = scales::label_number_si()) +
+  ggtitle("Total Trips per Hour")
+  
+```
+
+\newpage
+
+Total number of rides per rider type and bike-type
+
+```{r echo = FALSE,message=FALSE, warning=FALSE}
+
+sum_bike_type <- cleaned_df |>
+ group_by(member_casual, rideable_type)|>
+  summarise(Total = n())
+    knitr::kable(sum_bike_type, caption = "Total Trips Per Bike Type")
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+cleaned_df|>
+  mutate(bike = rideable_type)|>
+  group_by(member_casual, bike)|>
+  summarise(number_of_rides = n(), .groups="drop")|>
+    arrange(member_casual, bike)|>
+  ggplot(aes (x = member_casual, y = number_of_rides, fill = bike)) + 
+  geom_col(position = "dodge")+
+  labs(x = "Rider Type", y = "", fill = "Bike Type") +
+  scale_y_continuous(labels = scales::label_number_si()) +
+  ggtitle("Total Trips Per Bike Type")
+
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cyclistic_summarization2 <- cleaned_df |>
+  group_by(member_casual, rideable_type )|>
+  summarise(Shortest = min(ride_length),
+          Average = mean(ride_length), 
+          Longest = max(ride_length),)|>
+          arrange(Average)
+  cyclistic_summarization2$shortest_min <- with(cyclistic_summarization2, seconds_to_period(Shortest))
+  cyclistic_summarization2$ave_min <- with(cyclistic_summarization2, seconds_to_period(Average))
+  cyclistic_summarization2$longest_min <-with(cyclistic_summarization2, seconds_to_period(Longest))
+  cyclistic_summarization2 <- cyclistic_summarization2|>
+    select(-Average,-Longest, -Shortest, shortest_min, ave_min, longest_min)|>
+    mutate(Shortest = round(shortest_min, 2))|>
+    mutate(Average = round(ave_min, 2))|>
+    mutate(Longest = round(longest_min,2))|>
+    select(-shortest_min, -ave_min, -longest_min, Shortest, Average, Longest)
+  
+  knitr::kable(cyclistic_summarization2, caption = "Average Trip Per Bike Type Summarization")
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+cleaned_df|>
+  mutate(bike = rideable_type)|>
+  group_by(member_casual, bike)|>
+  summarise(ave_ride_time = mean(ride_length))|>
+    arrange(member_casual, bike)|>
+  
+  ggplot(aes(x = member_casual, y=ave_ride_time, fill = bike)) + geom_col(position = "dodge") +
+  scale_y_time()+
+  labs(x = "Rider Type", y = "(minutes)", fill = "Bike Type") +
+  theme_bw() + 
+  ggtitle("Average Trip Per Bike Type")
+
+```
+
+\newpage
+
+Total bike-types per Month
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+bikes_month <- cleaned_df|>
+  mutate(month= started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize(number_of_rides = n())|>
+    pivot_wider(names_from = rideable_type, 
+    values_from = number_of_rides)
+    knitr::kable(bikes_month, caption = "Total Trips Per Bike Type")
+
+```
+
+The most popular bike overall is classic bikes.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cleaned_df|>
+  mutate(month= started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize(number_of_rides = n(), member_casual, aveduration = mean(ride_length), 
+    bike_type = rideable_type)|>
+
+ggplot (aes(x = month, y = number_of_rides, fill = rideable_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Month", 
+  y = "", 
+  fill = "Bike Type") +
+  theme_bw()+
+  scale_y_continuous(labels = scales::label_number_si()) +
+  ggtitle("Total Trips Per Bike Type")
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ave_bike_type <- cleaned_df|>
+  mutate(month = started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize( aveduration = mean(ride_length))|>
+  pivot_wider(names_from = rideable_type, 
+    values_from = aveduration)
+  
+  ave_bike_type$classic_ave <- with(ave_bike_type, seconds_to_period(classic))
+  ave_bike_type$docked_ave <- with(ave_bike_type, seconds_to_period(docked))
+  ave_bike_type$electric_ave <- with(ave_bike_type, seconds_to_period(electric))
+  
+  ave_bike_type|>
+  select(-classic, -docked, -electric) |> 
+  mutate(classic = round(classic_ave, 2))|>
+  mutate(docked = round(docked_ave,2))|>
+  mutate(electric = round(electric_ave, 2))|>
+  select(-classic_ave, -docked_ave, -electric_ave)|>
+
+    knitr::kable(caption = "Average Trip Time Per Bike Type")
+  
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+cleaned_df|>
+  mutate(month = started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize(number_of_rides = n(), member_casual, aveduration = mean(ride_length), bike_type = rideable_type, .groups="drop")|>
+ggplot(aes(x = month, y = aveduration, fill = bike_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Month", 
+  y = "", 
+  fill = "Bike Type") +
+  theme_bw()+
+  scale_y_time()+
+  ggtitle("Average Trip Time Per Bike Type")
+  
+```
+
+\newpage
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+## not worthing of adding the the report
+cleaned_df|>
+ mutate(month = started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize (maxduration = max(ride_length))|>
+pivot_wider(names_from = rideable_type,
+values_from = maxduration)|>
+knitr::kable (caption = "Maximum Ride Time Per Bikes Per Bike Type")
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+
+cleaned_df$abbrev_weekday <- ordered(cleaned_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+
+cleaned_df|>
+  mutate(weekday = abbrev_weekday)|>
+  group_by(member_casual, weekday)|>
+ summarise(number_of_rides = n(),  .groups="drop")|>
+  arrange(member_casual, weekday)|>
+  knitr::kable(caption = "Total Trips For Each Bike Type Per Week")
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+cleaned_df$abbrev_weekday <- ordered(cleaned_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+
+cleaned_df |>  
+ mutate(week = abbrev_weekday)|>
+  group_by(rideable_type, week)|>
+  summarize(number_of_rides = n(),
+  member_casual, maxduration = max(ride_length), 
+  bike_type = rideable_type)|>
+
+ggplot(aes(x = week, 
+  y = number_of_rides, 
+  fill = bike_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Day of Week", 
+  y = "", 
+  fill = "Bike Type") +
+  theme_bw() +
+  scale_y_continuous(labels = scales::label_number_si()) +
+  ggtitle("Total Trips For Each Bike Type Per Week")
+  
+```
+
+\newpage
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+cleaned_df$abbrev_weekday <- ordered(cleaned_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+
+  average_bike_df <- cleaned_df |>
+  mutate(weekday = abbrev_weekday)|>
+  mutate(bike_type = rideable_type)|>
+  group_by( weekday, bike_type)|>
+  summarize( aveduration = mean(ride_length), .groups="drop")
+  
+  average_bike_df$average_bike_min = with(average_bike_df, seconds_to_period(aveduration))
+  
+  average_bike_df|>
+    select(-aveduration)|>
+    mutate(average = round(average_bike_min,2))|>
+    select(-average_bike_min)|>
+
+  knitr::kable(caption = "Average time per Bike Type")
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+cleaned_df$abbrev_weekday <- ordered(cleaned_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+
+cleaned_df |>  
+ mutate(weekday = abbrev_weekday)|>
+mutate(bike_type = rideable_type)|>
+  group_by(rideable_type, weekday)|>
+  summarize(aveduration = ave(ride_length),
+  member_casual,
+  bike_type = rideable_type)|>
+
+ggplot(aes(x = weekday, y = aveduration, 
+  fill = bike_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Weekday", 
+  y = "", 
+  fill = "Bike Type") +
+  theme_bw() +
+  scale_y_time() +
+  ggtitle("Average time per Bike Type")
+
+  
+```
+\newpage
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+
+casual_rider_df <- cleaned_df|>
+select(member_casual, 
+         rideable_type, 
+         started_at, 
+         started_at_month, 
+         started_at_weekday,
+        abbrev_weekday,
+         started_at_hour, 
+         ride_length, 
+         ride_length_hms)|>
+  filter(member_casual == "casual")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+casual_rider_df|>
+ 
+  mutate(month= started_at_month)|>
+  group_by( month, rideable_type)|>
+  summarize(number_of_rides = n())|>
+  arrange(month)|>
+  
+  knitr::kable (caption = "Total Trips For Casual Users")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+casual_rider_df|>
+ 
+  mutate(month= started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize(number_of_rides = n(), 
+  member_casual,
+  maxduration = max(ride_length), 
+  bike_type = rideable_type, .groups="drop")|>
+
+ggplot(aes(x = month, y = number_of_rides, 
+  fill = bike_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Month", 
+  y = "", 
+  fill = "Bike Type") +
+  theme_bw() +
+  scale_y_continuous(labels = scales::label_number_si()) +
+  ggtitle("Total Trips for Casual Riders")
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+average_casual_ave <- casual_rider_df|>
+ mutate(month= started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize(aveduration = mean(ride_length))|> 
+  pivot_wider(names_from = rideable_type, values_from = aveduration)
+  
+  average_casual_ave$classic_ave = with(average_casual_ave, seconds_to_period(classic))
+  average_casual_ave$docked_ave  = with(average_casual_ave, seconds_to_period(docked)) 
+  average_casual_ave$electric_ave = with(average_casual_ave, seconds_to_period(electric))
+  
+  average_casual_ave|>
+    select(-classic, -docked, -electric)|>
+    mutate(classic = round(classic_ave, 2))|>
+    mutate(docked = round(docked_ave, 2))|>
+    mutate(electric = round(electric_ave, 2))|>
+    select(-classic_ave, -docked_ave, -electric_ave)|>
+    
+  knitr::kable (caption = "Average Ride Times For Casual Users")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+casual_rider_df|>
+  mutate(month= started_at_month)|>
+  group_by(rideable_type, month)|>
+  summarize(number_of_rides = n(), member_casual, aveduration = mean(ride_length), bike_type = rideable_type)|>
+
+ggplot(aes(x = month, 
+  y = aveduration, fill = bike_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Month", 
+  y = "(minutes)", 
+  fill = "Bike Type") + 
+  scale_y_time() +
+  theme_bw() +
+  ggtitle("Average Ride Time for Casual Riders")
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+cleaned_df$abbrev_weekday <- ordered(cleaned_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+casual_rider_df|>  
+ mutate(weekday = abbrev_weekday)|>
+  mutate(bike_type = rideable_type)|>
+  group_by(bike_type, weekday)|>
+  summarize(number_of_rides = n(), 
+  .groups="drop")|>
+  knitr::kable(caption="Total Trips for Casual Riders")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+casual_rider_df$abbrev_weekday <- ordered(casual_rider_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+casual_rider_df|>  
+ mutate(weekday = abbrev_weekday)|>
+  group_by(rideable_type, weekday)|>
+  summarize(number_of_rides = n(), 
+  member_casual,
+  maxduration = max(ride_length), 
+  bike_type = rideable_type, .groups="drop")|>
+
+ggplot(aes(x = weekday, y = number_of_rides, 
+  fill = bike_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Weekday", 
+  y = "", 
+  fill = "Bike Type") +
+  theme_bw() +
+  scale_y_continuous(labels = scales::label_number_si()) +
+  ggtitle("Total Trips for Casual Riders")
+
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+casual_rider_df$abbrev_weekday <- ordered(casual_rider_df$abbrev_weekday, 
+levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+casual_wk_ave <- casual_rider_df|>  
+  mutate(weekday = abbrev_weekday)|>
+  mutate(bike_type = rideable_type)|>
+  group_by(bike_type, weekday)|>
+  summarize( aveduration = mean(ride_length), .groups="drop")
+  
+  casual_wk_ave$ave_time_min <- with(casual_wk_ave, seconds_to_period(aveduration))
+  
+  casual_wk_ave|>
+    select(-aveduration)|>
+    mutate(ave_time = round(ave_time_min))|>
+    select(-ave_time_min)|>
+  
+  knitr::kable(caption="Average Ride Time for Casual Riders")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+casual_rider_df$abbrev_weekday <- ordered(casual_rider_df$abbrev_weekday, levels= c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+casual_rider_df|>  
+  mutate(week= abbrev_weekday)|>
+  group_by(rideable_type, week, .group="drop")|>
+  summarize(number_of_rides = n(), 
+  member_casual, aveduration = mean(ride_length), 
+  bike_type = rideable_type, .groups="drop")|>
+
+
+ggplot(aes(x = week, y=aveduration, 
+  fill = bike_type)) +   
+  geom_col(position = "dodge") +
+  labs(x = "Week", 
+  y = "(minutes)", 
+  fill = "Bike Type") +
+  scale_y_time() +
+  theme_bw()+
+  ggtitle("Average Ride Time for Casual Riders")
+```
+
+\newpage
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+casual_rider_df|>
+  mutate(hour = started_at_hour)|>
+  mutate(bike_type = rideable_type)|>
+  group_by(bike_type, hour)|>
+  summarise(number_of_rides = n(), 
+  average_duration=mean(ride_length), .groups="drop")|>
+  arrange(bike_type, hour)|>
+
+  ggplot( aes(x = hour, y = number_of_rides, 
+    color = bike_type, fill = bike_type, 
+    shape = bike_type)) +
+    geom_point(size = 2) +
+    geom_line() +
+    labs(x = "Hour", y = "") +
+    theme(legend.title = element_blank())+
+    theme_bw() +
+    scale_y_continuous(labels = scales::label_number_si()) +
+    ggtitle("Total Trips For Casual Riders")
+```
+
+The following steps were taken to get most popular starting and end
+times for members and casual riders.
+
+Getting a dataframe to find the most popular starting coordinates.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+point_summary_df <- cleaned_df |>
+  group_by(member_casual, starting_point)|>
+  summarise(number_of_rides= n(), .groups="drop")|>
+  pivot_wider(names_from = member_casual, 
+              values_from=number_of_rides)
+
+```
+
+Separating the points after grouping back to lat, long values.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+points_latlong_df <- separate(point_summary_df, 
+                              col = starting_point,
+                              into  = c("lat", "long"),
+                              sep = ',',
+                              remove = FALSE)
+glimpse(points_latlong_df)
+```
+
+Changing lat/long values to double values.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+points_latlong_df <- points_latlong_df|>
+  mutate(lat=as.double(lat))|>
+  mutate(long=as.double(long))
+glimpse(points_latlong_df)
+```
+
+Replacing NA with 0 values for the number of members and casual members.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+points_latlong_df <- points_latlong_df |>
+  mutate_if(is.numeric, ~replace_na(.,0))
+
+glimpse(points_latlong_df)
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+max_member<-max(points_latlong_df$member)
+max_casual<-max(points_latlong_df$casual)
+print(max_member)
+print(max_casual)
+max_coord_user_type <-points_latlong_df |>
+  dplyr::select( member, casual, lat, long)|>
+  filter(member == max_member | casual == max_casual)
+
+max_lat <- max_coord_user_type$lat
+max_long <- max_coord_user_type$long
+  
+  start_casual_max <- start_station_df|>
+      dplyr::select(start_station_id, start_station_name, start_lat, start_lng)|>
+    filter(start_lat %in% c(max_lat) & start_lng %in% c(max_long))
+  glimpse(start_casual_max)
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+ max_coord_member <- points_latlong_df |>
+    dplyr::select( member, casual, lat, long, starting_point)|>
+    filter(member == max_member)
+  ##knitr::kable (max_coord_member, caption = "Maximum Rides for Members at Coordinate")
+glimpse(max_coord_member)
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+max_coord_casual <- points_latlong_df |>
+    dplyr::select( member, casual, lat, long, starting_point)|>
+    filter(casual == max_casual)
+    ##knitr::kable (max_coord_casual, caption = "Maximum Rides for Casual Riders at Coordinates")
+glimpse(max_coord_casual)
+```
+
+Found the start_station info with max information for members.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+    
+  start_member_max <- start_station_df|>
+      select(start_station_id, start_station_name, start_lat, start_lng)|>
+      filter(start_lat==max_coord_member$lat & start_lng == max_coord_member$long)
+##glimpse(start_member_max)
+knitr::kable (start_member_max, caption = "Maximum Rides for Members at Coordinates")
+  
+```
+
+Start_station info with max information for casual riders.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+start_casual_max <- start_station_df|>
+      dplyr::select(start_station_id, 
+      start_station_name, 
+      start_lat, start_lng)|>
+      filter(start_lat == max_coord_casual$lat & 
+               start_lng == max_coord_casual$long)
+knitr::kable (start_casual_max, caption = "Maximum Rides for Casual Riders at Coordinates")
+```
+
+Most popular starting coordinates are in attached html file if not shown
+below.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide', include=FALSE}
+mapviewOptions(fgb = FALSE)
+max_long <- c(max_coord_member$long, max_coord_casual$long)
+max_lat <- c(max_coord_member$lat, max_coord_casual$lat)
+  
+max_legend <- c("Max Member", "Max Casual")
+
+points_df <- data.frame(max_long, max_lat, max_legend)
+points_sdf <- st_as_sf(points_df, 
+        coords = c("max_long", "max_lat"), crs = 4326)
+
+mapview(points_sdf, label = points_sdf$max_legend)
+m <- mapview(points_sdf, label = points_sdf$max_legend)
+
+mapshot(m, url=paste0(getwd(), "/mapTest.html"))
+
+##browseURL(png_fl)
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+##glimpse(cleaned_df)
+end_summary_df <- cleaned_df |>
+  group_by(member_casual, ending_point)|>
+  summarise(number_of_rides= n())|>
+  pivot_wider(names_from = member_casual, 
+              values_from=number_of_rides)
+glimpse(point_summary_df)
+```
+
+Separated the lat, long values to other fields for endpoints.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+end_pt_latlong_df <- separate(end_summary_df, 
+                              col = ending_point,
+                              into  = c("lat", "long"),
+                              sep = ',',
+                              remove = FALSE)
+glimpse(end_pt_latlong_df)
+```
+
+Changed to 2 decimal points for end point lat/long values
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+end_pt_latlong_df <- end_pt_latlong_df|>
+ mutate(lat=as.double(lat))|>
+ mutate(long=as.double(long))
+glimpse(points_latlong_df)
+
+```
+
+Replaced N/A's with 0
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+end_pt_latlong_df <- end_pt_latlong_df |>
+  mutate_if(is.numeric, ~replace_na(.,0))
+
+glimpse(end_pt_latlong_df)
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+max_end_member <- max(end_pt_latlong_df$member)
+max_end_casual <- max(end_pt_latlong_df$casual)
+max_coord_user_end <- end_pt_latlong_df |>
+  dplyr::select( member, casual, lat, long, ending_point)|>
+  filter(member == max_end_member | casual == max_end_casual)
+  glimpse(max_coord_user_end)
+```
+
+Found the max endpoint for casual users.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+max_end_coord_casual <- end_pt_latlong_df |>
+    dplyr::select( member, casual, lat, long, ending_point)|>
+    filter(casual == max_end_casual)
+    glimpse(max_end_coord_casual)
+```
+
+```{r echo = FALSE,  message=FALSE, warning=FALSE, results='hide'}
+max_end_coord_member <- end_pt_latlong_df |>
+    dplyr::select( member, casual, lat, long, ending_point)|>
+    filter(member == max_end_member)
+    glimpse(max_end_coord_member)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+end_member_max <- end_station_df|>
+      select(end_station_id, end_station_name, end_lat, end_lng)|>
+      filter(end_lat == max_end_coord_member$lat & end_lng == max_end_coord_member$long)
+   knitr::kable (end_member_max, caption = "Maximum End Points at Coordinates For Members")
+```
+
+Maximum total trips popular ending coordinates for casual riders.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+end_casual_max <- end_station_df|>
+      select(end_station_id, end_station_name, end_lat, end_lng)|>
+      filter(end_lat == max_end_coord_casual$lat & end_lng == max_end_coord_casual$long)
+   knitr::kable (end_casual_max, caption = "Maximum End Points at Coordinates For Casual Riders")
+```
+
+Map for most popular end point is attached in an html file if not listed
+below.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, results='hide', include=FALSE}
+mapviewOptions(maxpoints = 55000)
+max_end_long <- c(max_end_coord_member$long, max_end_coord_casual$long)
+
+
+max_end_lat <- c(max_end_coord_member$lat, max_end_coord_casual$lat)
+  
+max_end_legend = c("Max Member", "Max Casual")
+
+points_end_df = data.frame(max_end_long, max_end_lat, max_end_legend)
+points_end_sdf = st_as_sf(points_end_df, 
+        coords = c("max_end_long", "max_end_lat"), crs = 4326)
+
+mapview(points_end_sdf, label = points_end_sdf$max_end_legend)
+m <- mapview(points_sdf, label = points_sdf$max_legend)
+mapshot(m, url=paste0(getwd(), "/mapTest2.html"))
+```
+
+### Trends:
+
+Casual rides comprise a over 1.4 million of the 4,076,163 rides for the
+year.
+
+Overall for all common trends for both casual riders and members include the following: 
+
+There are More trips May through October
+Average trips were longer April through September.
+Longer trips occur on the weekends. 
+During the daytime, between 2-7 PM.
+Both have peak times at 5 PM.
+Classic bikes are the preferred bike-type when looking at the data overall.
+Maximum times per trip tend to max out at about 36 minutes
+
+Comparisons
+
+Casual riders take longer trips than members.
+Casual riders take more trips June through September.
+Casual riders take longer trips April through September. Weather slightly influences the ride time.  
+Casual riders take the most trips on Saturday.  Casual riders take more trips Friday through Sunday. 
+The number of rides seems to gradually increase throughout the day.  
+Only Casual riders use docked bikes, but they are the least popular bike choice.
+Rides on docked bikes are the longest trips.  
+Casual riders prefer classic and electrical bikes almost equally, but electrical bikes seem to slightly popular overall.
+Casual riders prefer electric bikes October through April and then they preference changes to classic from May to October
+Casual riders prefer electric bikes Monday through Friday and classic bikes on Saturday and Sunday.  
+
+Members take the most trips on Wednesday.  They actually take more rides during the week Tuesday through Thursday. 
+Peak times for members are around commuter times 8:AM and 5PM. 
+Members prefer classic bikes and do not ride docked bikes.
+
+
+The most popular starting/ending coordinate for members is 41.88, -87.64
+
+The most popular starting/ending coordinate for casual riders is 41.89,
+-87.63
+
+### Recommendations:
+
+1)  Start advertising for the yearly membership at local
+    businesses, organization and on social media platforms. Partner withcompanies within close proximity to the popular start/end points to run affiliate marketting compaigns through Google Ads.  
+   .
+2)  Provide a seasonal pass for casual riders May through Sept, or
+    Saturday membership.
+    
+3)  Use flyers at local businesses near the popular start and end
+    coordinates.
+    
+4)  Addition revenue can be acquired through affiliate advertisements
+    (Google Ads)for local companies nearby popular start and end
+    coordinates.
